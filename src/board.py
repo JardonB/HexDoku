@@ -1,5 +1,5 @@
 import math
-from solver import check_num_is_valid
+from solver import solve, check_num_is_valid
 
 class Board:
     def __init__(self, size):
@@ -12,10 +12,14 @@ class Board:
             print(" ".join(str(num) if num == None else format(num, 'X') for num in row))
 
     def set_value(self, row, col, value):
-        if check_num_is_valid(self, row, col, value):
+        if check_num_is_valid(self, row, col, value) or value is None:
             self.grid[row][col] = value
         else:
             raise ValueError(f"Invalid value {value} for cell ({row}, {col})")
+        
+    def generate_random(self):
+        self.set_all(None)
+        solve(self)
 
     def is_solved(self):
         n = self.size
