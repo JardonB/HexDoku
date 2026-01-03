@@ -1,15 +1,19 @@
-import math
+import math, random
 
 def solve(board): # Solves the board using backtracking
     row, col = first_empty_cell(board)
     if (row, col) == (-1, -1):
-        return True  # Solved
-    for num in range(board.size):
+        return True  # No empty cells left, solved
+    
+    candidate_nums = list(board.valid_nums)
+    random.shuffle(candidate_nums)  # Shuffle to generate random solutions
+
+    for num in candidate_nums:
         if check_num_is_valid(board, row, col, num):
-            board.grid[row][col] = num
+            board.set_value(row, col, num)
             if solve(board):
                 return True
-            board.grid[row][col] = None  # Backtrack
+            board.set_value(row, col, None)  # Backtrack
     return False
 
 def first_empty_cell(board):
