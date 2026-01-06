@@ -11,7 +11,7 @@ class Board:
 
     def display(self): # Displays the board in a readable format
         for row in self.grid:
-            print(" ".join(str(num) if num == None else format(num, 'X') for num in row))
+            print(" ".join("_" if num == None else format(num, 'X') for num in row))
 
     def set_value(self, row, col, value): # Sets a value in the board if valid
         if check_num_is_valid(self, row, col, value) or value is None:
