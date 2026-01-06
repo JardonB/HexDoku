@@ -1,4 +1,4 @@
-import math, random
+import math, random, copy
 
 def solve(board): # Solves the board using backtracking
     row, col = first_empty_cell(board)
@@ -40,6 +40,17 @@ def solution_is_unique(board): # Counts the number of solutions for the current 
 
     backtrack()
     return board.num_solutions == 1
+
+def get_unique_solution(board, percent_unfill): # Returns the unique solution if it exists
+    unique_solution_board = copy.deepcopy(board)
+    unique_solution_board.unfill_cells(percent_unfill)
+
+    while not solution_is_unique(unique_solution_board):
+        unique_solution_board = copy.deepcopy(board)
+        unique_solution_board.unfill_cells(percent_unfill)
+        percent_unfill = max(percent_unfill - 1, 1)  # Decrease unfill percentage to try again
+
+    return unique_solution_board
 
 def first_empty_cell(board):
     for row in board.grid:
