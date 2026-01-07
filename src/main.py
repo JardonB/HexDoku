@@ -1,13 +1,13 @@
-import copy
 from board import Board
-from solver import solve, first_empty_cell, solution_is_unique, get_unique_solution
+from solver import get_unique_solution
 
 def main():
     size = 16
     solution = Board(size)
     solution.generate_random()
+    solution.display()
 
-    puzzle = get_unique_solution(solution, percent_unfill=20)
+    puzzle = get_unique_solution(solution, percent_unfill=1)
 
     puzzle.display()
 
