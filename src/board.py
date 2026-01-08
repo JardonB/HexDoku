@@ -12,6 +12,13 @@ class Board:
         self.valid_chars = [format(i, 'X') for i in range(size)]
         self.num_solutions = None
 
+        # Bitmask representations for fast candidate computation
+        self.box_width = int(math.sqrt(size))
+        self.full_mask = (1 << size) - 1
+        self.rows_mask = [0 for _ in range(size)]
+        self.cols_mask = [0 for _ in range(size)]
+        self.boxes_mask = [0 for _ in range(size)]
+
     def display(self): # Displays the board in a readable format
         for row in self.grid:
             print(" ".join("_" if num == None else format(num, 'X') for num in row))
@@ -21,14 +28,23 @@ class Board:
         if old is not None:
             self.rows[row].remove(old)
             self.cols[col].remove(old)
-            self.boxes[(row // 4) * 4 + (col // 4)].remove(old)
-
+            box_index = (row // self.box_width) * self.box_width + (col // self.box_width)
+            self.boxes[box_index].remove(old)
+            bit = 1 << old
+            self.rows_mask[row] &= ~bit
+            self.cols_mask[col] &= ~bit
+            self.boxes_mask[box_index] &= ~bit
         self.grid[row][col] = num
 
         if num is not None:
             self.rows[row].add(num)
             self.cols[col].add(num)
-            self.boxes[(row // 4) * 4 + (col // 4)].add(num)
+            box_index = (row // self.box_width) * self.box_width + (col // self.box_width)
+            self.boxes[box_index].add(num)
+            bit = 1 << num
+            self.rows_mask[row] |= bit
+            self.cols_mask[col] |= bit
+            self.boxes_mask[box_index] |= bit
 
     def set_value_validated(self, row, col, value): # Sets a value in the board if valid, updating tracking sets
         if check_num_is_valid(self, row, col, value) or value is None:
@@ -47,7 +63,8 @@ class Board:
         all_positions = [(r, c) for r in range(self.size) for c in range(self.size)]
         random_positions = random.sample(all_positions, cells_to_unfill)
         for r, c in random_positions:
-            self.grid[r][c] = None
+            # use set_value to update masks and sets properly
+            self.set_value(r, c, None)
 
     def is_solved(self): # Checks if the board is completely and correctly filled
         n = self.size
@@ -82,30 +99,44 @@ class Board:
 
     def set_all(self, value): # Sets all cells to a specific value
         n = self.size
-        # Build the grid and reset tracking sets
+        # Build the grid and reset tracking sets and masks
         self.grid = [[value for _ in range(n)] for _ in range(n)]
         self.rows = [set() for _ in range(n)]
         self.cols = [set() for _ in range(n)]
         self.boxes = [set() for _ in range(n)]
+        self.rows_mask = [0 for _ in range(n)]
+        self.cols_mask = [0 for _ in range(n)]
+        self.boxes_mask = [0 for _ in range(n)]
 
-        # Populate tracking sets if value is not None
+        # Populate tracking sets and masks if value is not None
         if value is not None:
-            box_width = int(math.sqrt(n))
+            bit = 1 << value
             for r in range(n):
                 for c in range(n):
                     self.rows[r].add(value)
                     self.cols[c].add(value)
-                    box = (r // box_width) * box_width + (c // box_width)
+                    box = (r // self.box_width) * self.box_width + (c // self.box_width)
                     self.boxes[box].add(value)
+                    self.rows_mask[r] |= bit
+                    self.cols_mask[c] |= bit
+                    self.boxes_mask[box] |= bit
 
     def board_copy(self): # Returns a copy of the board with all attributes
-        new = Board(self.size)
+        # Create an instance without running __init__ to avoid allocating
+        # temporary structures twice. Copy only the necessary attributes.
+        new = object.__new__(Board)
+        new.size = self.size
+        new.box_width = self.box_width
         new.grid = [row.copy() for row in self.grid]
         new.rows = [s.copy() for s in self.rows]
         new.cols = [s.copy() for s in self.cols]
         new.boxes = [s.copy() for s in self.boxes]
-        new.valid_nums = self.valid_nums[:]
-        new.valid_chars = self.valid_chars[:]
+        new.valid_nums = self.valid_nums[:] if hasattr(self, 'valid_nums') else [i for i in range(new.size)]
+        new.valid_chars = self.valid_chars[:] if hasattr(self, 'valid_chars') else [format(i, 'X') for i in range(new.size)]
         new.num_solutions = self.num_solutions
+        new.full_mask = self.full_mask
+        new.rows_mask = self.rows_mask[:]
+        new.cols_mask = self.cols_mask[:]
+        new.boxes_mask = self.boxes_mask[:]
         return new
     

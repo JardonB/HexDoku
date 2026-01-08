@@ -7,8 +7,9 @@ def main():
     solution.generate_random()
     solution.display()
 
-    puzzle = get_unique_solution(solution, percent_unfill=1)
+    puzzle = get_unique_solution(solution, percent_unfill=50)
 
+    print("\nGenerated Puzzle:")
     puzzle.display()
 
 if __name__ == "__main__":
