@@ -14,22 +14,33 @@ class HexDokuDisplay:
     def _build_grid(self):
         for r in range(self.board.size):
             for c in range(self.board.size):
-                # Add heavier borders for boxes
-                padx = 1
-                pady = 1
-                if c % self.board.box_width == 0:
-                    padx = (5, 1)
-                if r % self.board.box_width == 0:
-                    pady = (5, 1)
-                
-                entry = tk.Entry(self.root, width=2, font=("Arial", 16), justify="center")
-                entry.grid(row=r, column=c, padx=padx, pady=pady)
+                # Decide if this cell is on a 4x4 box boundary
+                top_border    = (r % self.board.box_width == 0)
+                left_border   = (c % self.board.box_width == 0)
+                bottom_border = (r == self.board.size - 1)
+                right_border  = (c == self.board.size - 1)
 
-                # Store reference to the entry widget
-                entry.row, entry.col = r, c
-                
-                # Bind events
-                entry.bind("<FocusOut>", self._on_cell_change)
+                # Create a frame to hold the entry and draw borders with it
+                frame = tk.Frame(self.root, highlightthickness=0, bd=0, bg="black")
+                frame.grid(row=r, column=c, padx=0, pady=0, sticky="nsew")
+
+                # Use internal padding of the frame to simulate borders
+                ipadx_left = 1 + (2 if left_border else 0)
+                ipady_top  = 1 + (2 if top_border else 0)
+                ipady_bot  = 1 + (2 if bottom_border else 0)
+                ipadx_right= 1 + (2 if right_border else 0)
+
+                inner = tk.Frame(frame, bg="black")
+                inner.pack(
+                    padx=(ipadx_left, ipadx_right),
+                    pady=(ipady_top, ipady_bot)
+                )
+
+                entry = tk.Entry(inner, width=2, font=("Arial", 16), justify="center")
+                entry.pack()
+
+                # Bind with row/col via lambda
+                entry.bind("<FocusOut>", lambda e, row=r, col=c: self._on_cell_change(e, row, col))
                 self.cells[r][c] = entry
 
     def _render_board(self):
