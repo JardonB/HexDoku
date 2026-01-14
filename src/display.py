@@ -2,6 +2,8 @@ import tkinter as tk
 import tkinter.messagebox as mb
 from board import Board
 from solver import check_num_is_valid, char_to_num, num_to_char, get_unique_solution, best_empty_cell
+from save import save_state, load_state, SAVE_PATH
+from pathlib import Path
 
 class HexDokuDisplay:
     board: "Board | None"
@@ -41,7 +43,11 @@ class HexDokuDisplay:
         start_button = tk.Button(self.start_frame, text="Start Game", command=self._start_game)
         start_button.pack(pady=10)
 
-        quit_button = tk.Button(self.start_frame, text="Quit", command=self.root.quit)
+        if SAVE_PATH.exists():
+            continue_button = tk.Button(self.start_frame, text="Continue Saved Game", command=self._continue_game)
+            continue_button.pack(pady=5)
+
+        quit_button = tk.Button(self.start_frame, text="Quit", command=self._on_quit)
         quit_button.pack(pady=5)
 
     def _start_game(self):
@@ -60,6 +66,14 @@ class HexDokuDisplay:
         self.fixed = [[self.board.grid[r][c] for c in range(self.board.size)] for r in range(self.board.size)]
         self.cells = [[None for _ in range(self.board.size)] for _ in range(self.board.size)]
 
+        # Setup game frames
+        self._setup_game_frames()
+
+    def _setup_game_frames(self):
+        # Kill the old frames
+        if hasattr(self, 'game_frame'):
+            self.game_frame.destroy()
+            
         # Hide start frame and show game frame
         self.start_frame.pack_forget()
         self.game_frame = tk.Frame(self.root)
@@ -74,7 +88,7 @@ class HexDokuDisplay:
         hint_btn.pack(side="left", padx=10)
         fill_one_btn = tk.Button(self.control_frame, text="Fill One", command=self._fill_one_space, bg="lightblue")
         fill_one_btn.pack(side="left", padx=10)
-        quit_btn = tk.Button(self.control_frame, text="Quit", command=self.root.quit, bg="red", fg="white")
+        quit_btn = tk.Button(self.control_frame, text="Quit", command=self._on_quit, bg="red", fg="white")
         quit_btn.pack(side="right", padx=10)
         restart_btn = tk.Button(self.control_frame, text="Restart", command=self._restart_game, bg="orange")
         restart_btn.pack(side="right", padx=10)
@@ -86,6 +100,11 @@ class HexDokuDisplay:
         self.grid_frame.pack(side="top")
         self._build_grid()
         self._render_board()
+
+    def _on_quit(self):
+        if self.board is not None:
+            save_state(self.board, self.fixed, self.difficulty_var.get())
+        self.root.quit()
 
     def _build_grid(self):
         if self.board is None or self.cells is None:
@@ -159,6 +178,8 @@ class HexDokuDisplay:
         self._back_to_start()
 
     def _back_to_start(self):
+        if self.board is not None:
+            save_state(self.board, self.fixed, self.difficulty_var.get())
         self.game_frame.pack_forget()
         self.start_frame.pack(fill='both', expand=True)
 
@@ -219,7 +240,7 @@ class HexDokuDisplay:
         cell.config(bg="yellow")
 
     def _fill_one_space(self):
-        if self.board is None or self.cells is None or self.board.solution_board is None:
+        if self.board is None or self.cells is None or self.board.solution_grid is None:
             raise ValueError("Board and cells must be initialized before filling spaces.")
         
         row, col = best_empty_cell(self.board)
@@ -228,7 +249,7 @@ class HexDokuDisplay:
             return
         
         # Fill the cell with the correct solution value
-        correct_value = self.board.solution_board.grid[row][col]
+        correct_value = self.board.solution_grid[row][col]
         self.board.set_value(row, col, correct_value)
         cell = self.cells[row][col]
         if cell is None:
@@ -251,6 +272,34 @@ class HexDokuDisplay:
                 val = self.fixed[r][c]
                 self.board.set_value(r, c, val)
         self._render_board()
+
+    def _continue_game(self):
+        data = load_state()
+        if data is None:
+            return  # no save, or handle gracefully
+
+        size = data["size"]
+        grid = data["grid"]
+        fixed = data["fixed"]
+        solution = data["solution"]
+        difficulty = data.get("difficulty", 3)
+
+        board = Board(size)
+        board.grid = grid
+        self.fixed = fixed
+        board.solution_grid = solution
+        # Rebuild masks/sets from grid (so check_num_is_valid works)
+        board.rebuild_masks_from_grid()
+
+        self.board = board
+        self.difficulty_var.set(difficulty)
+        self.cells = [[None for _ in range(size)] for _ in range(size)]
+
+        self.start_frame.pack_forget()
+        self.game_frame.pack(fill="both", expand=True)
+
+        # Set up game frames
+        self._setup_game_frames()
 
     def run(self):
         self.root.mainloop()

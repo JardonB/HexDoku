@@ -13,7 +13,7 @@ class Board:
         self.num_solutions = None
 
         # Store the solution board after generation
-        self.solution_board = None
+        self.solution_grid = None
 
         # Bitmask representations for fast candidate computation
         self.box_width = int(math.sqrt(size))
@@ -59,7 +59,7 @@ class Board:
         while not self.is_solved():
             self.set_all(None)
             solve(self, randomized=True)
-        self.solution_board = self.board_copy()
+        self.solution_grid = self.grid.copy()
 
     def unfill_cells(self, percent_unfill): # Unfills a percentage of cells to create a puzzle
         total_cells = self.size * self.size
@@ -138,10 +138,38 @@ class Board:
         new.valid_nums = self.valid_nums[:] if hasattr(self, 'valid_nums') else [i for i in range(new.size)]
         new.valid_chars = self.valid_chars[:] if hasattr(self, 'valid_chars') else [format(i, 'X') for i in range(new.size)]
         new.num_solutions = self.num_solutions
-        new.solution_board = self.solution_board.board_copy() if self.solution_board else None
+        new.solution_grid = self.solution_grid.copy() if self.solution_grid is not None else None
         new.full_mask = self.full_mask
         new.rows_mask = self.rows_mask[:]
         new.cols_mask = self.cols_mask[:]
         new.boxes_mask = self.boxes_mask[:]
         return new
     
+    def rebuild_masks_from_grid(self):
+        # Reset all tracking structures
+        self.rows = [set() for _ in range(self.size)]
+        self.cols = [set() for _ in range(self.size)]
+        self.boxes = [set() for _ in range(self.size)]
+        self.rows_mask = [0] * self.size
+        self.cols_mask = [0] * self.size
+        self.boxes_mask = [0] * self.size
+
+        # Populate from current grid
+        for r in range(self.size):
+            for c in range(self.size):
+                val = self.grid[r][c]
+                if val is None:
+                    continue
+
+                box_index = (r // self.box_width) * self.box_width + (c // self.box_width)
+
+                # Update sets
+                self.rows[r].add(val)
+                self.cols[c].add(val)
+                self.boxes[box_index].add(val)
+
+                # Update masks
+                bit = 1 << val
+                self.rows_mask[r] |= bit
+                self.cols_mask[c] |= bit
+                self.boxes_mask[box_index] |= bit
