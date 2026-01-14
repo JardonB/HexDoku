@@ -4,6 +4,9 @@ from board import Board
 from solver import check_num_is_valid, char_to_num, num_to_char, get_unique_solution
 
 class HexDokuDisplay:
+    board: "Board | None"
+    cells: "list[list[tk.Entry | None]] | None"
+
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("HexDoku")
@@ -62,6 +65,9 @@ class HexDokuDisplay:
         self._render_board()
 
     def _build_grid(self):
+        if self.board is None or self.cells is None:
+            raise ValueError("Board and cells must be initialized before building the grid.")
+        
         for r in range(self.board.size):
             for c in range(self.board.size):
                 # Decide if this cell is on a 4x4 box boundary
@@ -89,18 +95,20 @@ class HexDokuDisplay:
                 entry = tk.Entry(inner, width=2, font=("Arial", 16), justify="center")
                 entry.pack()
 
-                # Store reference to the entry widget
-                entry.row, entry.col = r, c
-                
                 # Bind events
-                entry.bind("<FocusOut>", self._on_cell_change)
+                entry.bind("<FocusOut>", lambda e, row=r, col=c: self._on_cell_change(e, row, col))
                 self.cells[r][c] = entry
 
     def _render_board(self):
+        if self.board is None or self.cells is None:
+            raise ValueError("Board and cells must be initialized before rendering the grid.")
+        
         for r in range(self.board.size):
             for c in range(self.board.size):
                 val = self.board.grid[r][c]
                 widget = self.cells[r][c]
+                if widget is None:
+                    continue
                 widget.delete(0, tk.END)
                 if val is not None:
                     widget.insert(0, num_to_char(val))
@@ -112,12 +120,17 @@ class HexDokuDisplay:
 
     def _is_fixed_cell(self, row, col):
         # Fixed cells are those that are not None in the original puzzle board
-        return self.fixed[row][col] is not None
+        return False if self.fixed is None else self.fixed[row][col] is not None
     
     def _show_puzzle_complete(self): # Highlight all cells to indicate completion
+        if self.board is None or self.cells is None:
+            raise ValueError("Board and cells must be initialized before showing completion.")
+        
         for r in range(self.board.size):
             for c in range(self.board.size):
                 cell = self.cells[r][c]
+                if cell is None:
+                    continue
                 cell.config(state='readonly', readonlybackground='lightgreen', fg='black')
         mb.showinfo("Congratulations!", "Puzzle Completed Successfully! Click OK to return to start screen.")
         self._back_to_start()
@@ -126,13 +139,15 @@ class HexDokuDisplay:
         self.game_frame.pack_forget()
         self.start_frame.pack(fill='both', expand=True)
 
-    def _on_cell_change(self, event):
+    def _on_cell_change(self, event, r: int, c: int):
+        if self.board is None or self.cells is None:
+            raise ValueError("Board and cells must be initialized before handling cell changes.")
+        
         widget = event.widget
-        r, c = widget.row, widget.col
         text = widget.get().strip().upper()
 
         # If fixed cell, revert any changes
-        if self._is_fixed_cell(r, c):
+        if self._is_fixed_cell(r, c) and self.fixed is not None:
             original_val = self.fixed[r][c]
             widget.delete(0, tk.END)
             if original_val is not None:
