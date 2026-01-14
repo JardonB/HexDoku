@@ -8,7 +8,7 @@ def main():
     solution.generate_random()
     solution.display()
 
-    puzzle = get_unique_solution(solution, percent_unfill=50)
+    puzzle = get_unique_solution(solution, percent_unfill=1)
 
     gui = HexDokuDisplay(puzzle)
     gui.run()

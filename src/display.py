@@ -4,6 +4,7 @@ from solver import check_num_is_valid, char_to_num, num_to_char
 class HexDokuDisplay:
     def __init__(self, board):
         self.board = board
+        self.fixed = [[cell for cell in row] for row in self.board.grid] # Track fixed cells
         self.root = tk.Tk()
         self.root.title("HexDoku")
 
@@ -39,8 +40,11 @@ class HexDokuDisplay:
                 entry = tk.Entry(inner, width=2, font=("Arial", 16), justify="center")
                 entry.pack()
 
-                # Bind with row/col via lambda
-                entry.bind("<FocusOut>", lambda e, row=r, col=c: self._on_cell_change(e, row, col))
+                # Store reference to the entry widget
+                entry.row, entry.col = r, c
+                
+                # Bind events
+                entry.bind("<FocusOut>", self._on_cell_change)
                 self.cells[r][c] = entry
 
     def _render_board(self):
@@ -53,40 +57,51 @@ class HexDokuDisplay:
                     widget.insert(0, num_to_char(val))
                 
                 if self._is_fixed_cell(r, c):
-                    widget.config(state='readonly', readonlybackground='black', fg='white')
+                    widget.config(state='readonly', readonlybackground='lightgray', fg='black')
                 else:
                     widget.config(state='normal')
 
     def _is_fixed_cell(self, row, col):
         # Fixed cells are those that are not None in the original puzzle board
-        return self.board.grid[row][col] is not None
+        return self.fixed[row][col] is not None
     
     def _on_cell_change(self, event):
         widget = event.widget
         r, c = widget.row, widget.col
         text = widget.get().strip().upper()
 
-        # Handle empty input
-        if text == "":
-            self.board.grid[r][c] = None
-            widget.config(bg="white")
+        # If fixed cell, revert any changes
+        if self._is_fixed_cell(r, c):
+            original_val = self.fixed[r][c]
+            widget.delete(0, tk.END)
+            if original_val is not None:
+                widget.insert(0, num_to_char(original_val))
+            widget.config(bg="lightgray", fg="black", state='readonly')
             return
         
-        # Validate input
+        # If cell is not fixed and text is empty, clear the cell
+        if text == "":
+            self.board.set_value(r, c, None)
+            widget.config(bg="white", fg="black")
+            return
+        
+        # Validate that input is a single allowed character
         allowed = set(self.board.valid_chars)
         if len(text) != 1 or text not in allowed:
             widget.delete(0, tk.END)
-            widget.config(bg="red")
+            widget.config(bg="red", fg="white")
             return
         
-        value = char_to_num(text) # Convert character to number
-
-        if not self._is_fixed_cell(r, c):
-            if check_num_is_valid(self.board, r, c, value):
-                self.board.set_value(r, c, value)
-                widget.config(bg="white", fg="black")
-            else:
-                widget.config(bg="red", fg="white")
+        # Convert char to number
+        num = char_to_num(text)
+        if check_num_is_valid(self.board, r, c, num):
+            self.board.set_value(r, c, num)
+            widget.config(bg="white", fg="black")
+        else:
+            # Clear the cell from the board state when validation fails
+            self.board.set_value(r, c, None)
+            widget.delete(0, tk.END)
+            widget.config(bg="red", fg="white")
 
     def run(self):
         self.root.mainloop()
