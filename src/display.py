@@ -1,7 +1,7 @@
 import tkinter as tk
 import tkinter.messagebox as mb
 from board import Board
-from solver import check_num_is_valid, char_to_num, num_to_char, get_unique_solution
+from solver import check_num_is_valid, char_to_num, num_to_char, get_unique_solution, best_empty_cell
 
 class HexDokuDisplay:
     board: "Board | None"
@@ -45,6 +45,10 @@ class HexDokuDisplay:
         quit_button.pack(pady=5)
 
     def _start_game(self):
+        # Kill the old frames
+        if hasattr(self, 'game_frame'):
+            self.game_frame.destroy()
+
         # Get the selected difficulty
         percent_unfill = self.difficulty_var.get()
 
@@ -58,9 +62,28 @@ class HexDokuDisplay:
 
         # Hide start frame and show game frame
         self.start_frame.pack_forget()
+        self.game_frame = tk.Frame(self.root)
         self.game_frame.pack(fill='both', expand=True)
 
-        # Build the game grid inside game frame
+        # Start control frame
+        self.control_frame = tk.Frame(self.game_frame)
+        self.control_frame.pack(side="top", fill="x")
+
+        # Build control buttons
+        hint_btn = tk.Button(self.control_frame, text="Hint", command=self._show_hint, bg="yellow")
+        hint_btn.pack(side="left", padx=10)
+        fill_one_btn = tk.Button(self.control_frame, text="Fill One", command=self._fill_one_space, bg="lightblue")
+        fill_one_btn.pack(side="left", padx=10)
+        quit_btn = tk.Button(self.control_frame, text="Quit", command=self.root.quit, bg="red", fg="white")
+        quit_btn.pack(side="right", padx=10)
+        restart_btn = tk.Button(self.control_frame, text="Restart", command=self._restart_game, bg="orange")
+        restart_btn.pack(side="right", padx=10)
+        back_btn = tk.Button(self.control_frame, text="Back to Menu", command=self._back_to_start)
+        back_btn.pack(side="right", padx=10)
+
+        # Start and build grid frame
+        self.grid_frame = tk.Frame(self.game_frame)
+        self.grid_frame.pack(side="top")
         self._build_grid()
         self._render_board()
 
@@ -77,7 +100,7 @@ class HexDokuDisplay:
                 right_border  = (c == self.board.size - 1)
 
                 # Create a frame to hold the entry and draw borders with it
-                frame = tk.Frame(self.game_frame, highlightthickness=0, bd=0, bg="black")
+                frame = tk.Frame(self.grid_frame, highlightthickness=0, bd=0, bg="black")
                 frame.grid(row=r, column=c, padx=0, pady=0, sticky="nsew")
 
                 # Use internal padding of the frame to simulate borders
@@ -116,7 +139,7 @@ class HexDokuDisplay:
                 if self._is_fixed_cell(r, c):
                     widget.config(state='readonly', readonlybackground='lightgray', fg='black')
                 else:
-                    widget.config(state='normal')
+                    widget.config(state='normal', bg='white', fg='black')
 
     def _is_fixed_cell(self, row, col):
         # Fixed cells are those that are not None in the original puzzle board
@@ -169,6 +192,10 @@ class HexDokuDisplay:
         
         # Convert char to number
         num = char_to_num(text)
+        old_value = self.board.grid[r][c]
+        if old_value is not None:
+            self.board.set_value(r, c, None)  # Clear old value first
+        
         if check_num_is_valid(self.board, r, c, num):
             self.board.set_value(r, c, num)
             widget.config(bg="white", fg="black")
@@ -178,8 +205,57 @@ class HexDokuDisplay:
                 self._show_puzzle_complete()
         else:
             # Clear the cell from the board state when validation fails
+            if old_value is not None: # Restore old value
+                self.board.set_value(r, c, old_value)
             self.board.set_value(r, c, None)
             widget.config(bg="red", fg="white")
+
+    def _show_hint(self):
+        if self.board is None or self.cells is None:
+            raise ValueError("Board and cells must be initialized before showing hints.")
+        
+        row, col = best_empty_cell(self.board)
+        if row == -1 and col == -1:
+            mb.showinfo("No Hints", "The puzzle is already complete!")
+            return
+        cell = self.cells[row][col]
+        if cell is None:
+            return
+        cell.config(bg="yellow")
+
+    def _fill_one_space(self):
+        if self.board is None or self.cells is None or self.board.solution_board is None:
+            raise ValueError("Board and cells must be initialized before filling spaces.")
+        
+        row, col = best_empty_cell(self.board)
+        if row == -1 and col == -1:
+            mb.showinfo("No Spaces", "The puzzle is already complete!")
+            return
+        
+        # Fill the cell with the correct solution value
+        correct_value = self.board.solution_board.grid[row][col]
+        self.board.set_value(row, col, correct_value)
+        cell = self.cells[row][col]
+        if cell is None:
+            return
+        cell.delete(0, tk.END)
+        cell.insert(0, num_to_char(correct_value))
+        cell.config(bg="lightblue", fg="black")
+
+        # Check for puzzle completion
+        if self.board.is_solved():
+            self._show_puzzle_complete()
+
+    def _restart_game(self):
+        if self.board is None or self.fixed is None:
+            raise ValueError("Board and fixed cells must be initialized before restarting the game.")
+        
+        # Reset board to original puzzle state
+        for r in range(self.board.size):
+            for c in range(self.board.size):
+                val = self.fixed[r][c]
+                self.board.set_value(r, c, val)
+        self._render_board()
 
     def run(self):
         self.root.mainloop()
