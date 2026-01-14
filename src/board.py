@@ -12,6 +12,9 @@ class Board:
         self.valid_chars = [format(i, 'X') for i in range(size)]
         self.num_solutions = None
 
+        # Store the solution board after generation
+        self.solution_board = None
+
         # Bitmask representations for fast candidate computation
         self.box_width = int(math.sqrt(size))
         self.full_mask = (1 << size) - 1
@@ -56,6 +59,7 @@ class Board:
         while not self.is_solved():
             self.set_all(None)
             solve(self, randomized=True)
+        self.solution_board = self.board_copy()
 
     def unfill_cells(self, percent_unfill): # Unfills a percentage of cells to create a puzzle
         total_cells = self.size * self.size
@@ -134,6 +138,7 @@ class Board:
         new.valid_nums = self.valid_nums[:] if hasattr(self, 'valid_nums') else [i for i in range(new.size)]
         new.valid_chars = self.valid_chars[:] if hasattr(self, 'valid_chars') else [format(i, 'X') for i in range(new.size)]
         new.num_solutions = self.num_solutions
+        new.solution_board = self.solution_board.board_copy() if self.solution_board else None
         new.full_mask = self.full_mask
         new.rows_mask = self.rows_mask[:]
         new.cols_mask = self.cols_mask[:]
