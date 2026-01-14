@@ -147,3 +147,14 @@ def check_col_is_valid(board, row, col, num): # Checks the column
             return False
     return True
 
+# Conversion utilities
+HEX_CHARS = '0123456789ABCDEF'
+
+def char_to_num(char): # Converts character to number
+    if char.isdigit():
+        return int(char)
+    else:
+        return HEX_CHARS.index(char.upper())
+
+def num_to_char(num): # Converts number to character
+    return HEX_CHARS[num]
