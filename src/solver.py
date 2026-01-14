@@ -121,9 +121,22 @@ def best_empty_cell(board): # Finds the empty cell with the fewest valid candida
     return best_cell
 
 def check_num_is_valid(self, row, col, num): # Checks if a number can be placed in a cell
+    old = self.grid[row][col] # Save old value
+
+    # Temporarily clear the cell if not already empty
+    if old is not None:
+        self.set_value(row, col, None)
+
+    # Now check masks without this cell’s contribution
     box = (row // self.box_width) * self.box_width + (col // self.box_width)
     bit = 1 << num
-    return not (self.rows_mask[row] & bit or self.cols_mask[col] & bit or self.boxes_mask[box] & bit)
+    conflict = (self.rows_mask[row] & bit) or (self.cols_mask[col] & bit) or (self.boxes_mask[box] & bit)
+
+    # Restore old value
+    if old is not None:
+        self.set_value(row, col, old)
+
+    return not conflict
 
 def check_box_is_valid(board, row, col, num): # Checks the sub-grid
     box_width = math.sqrt(board.size)

@@ -192,9 +192,6 @@ class HexDokuDisplay:
         
         # Convert char to number
         num = char_to_num(text)
-        old_value = self.board.grid[r][c]
-        if old_value is not None:
-            self.board.set_value(r, c, None)  # Clear old value first
         
         if check_num_is_valid(self.board, r, c, num):
             self.board.set_value(r, c, num)
@@ -205,8 +202,6 @@ class HexDokuDisplay:
                 self._show_puzzle_complete()
         else:
             # Clear the cell from the board state when validation fails
-            if old_value is not None: # Restore old value
-                self.board.set_value(r, c, old_value)
             self.board.set_value(r, c, None)
             widget.config(bg="red", fg="white")
 
