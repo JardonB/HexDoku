@@ -1,17 +1,19 @@
 import tkinter as tk
-from solver import check_num_is_valid, char_to_num, num_to_char
+import tkinter.messagebox as mb
+from board import Board
+from solver import check_num_is_valid, char_to_num, num_to_char, get_unique_solution
 
 class HexDokuDisplay:
-    def __init__(self, board):
-        self.board = board
-        self.fixed = [[cell for cell in row] for row in self.board.grid] # Track fixed cells
+    def __init__(self):
         self.root = tk.Tk()
         self.root.title("HexDoku")
 
         self.start_frame = tk.Frame(self.root)
         self.game_frame = tk.Frame(self.root)
 
-        self.cells = [[None for _ in range(board.size)] for _ in range(board.size)]
+        self.board = None # Board object to be set later after difficulty selection
+        self.fixed = None # Track fixed cells after puzzle generation
+        self.cells = None # To be initialized after board is set
         
         self._build_start_screen()
         self.start_frame.pack(fill='both', expand=True)
@@ -20,6 +22,19 @@ class HexDokuDisplay:
         label = tk.Label(self.start_frame, text="HexDoku", font=("Arial", 24))
         label.pack(pady=20)
 
+        tk.Label(self.start_frame, text="Select Difficulty:", font=("Arial", 14)).pack(pady=10)
+
+        # Difficulty slider, 1-75% unfilled
+        self.difficulty_var = tk.IntVar(value=38)
+        slider = tk.Scale(
+            self.start_frame, 
+            from_=1, 
+            to=75, 
+            orient="horizontal",
+            variable=self.difficulty_var,
+            showvalue=True,)
+        slider.pack(pady=10)
+
         start_button = tk.Button(self.start_frame, text="Start Game", command=self._start_game)
         start_button.pack(pady=10)
 
@@ -27,6 +42,17 @@ class HexDokuDisplay:
         quit_button.pack(pady=5)
 
     def _start_game(self):
+        # Get the selected difficulty
+        percent_unfill = self.difficulty_var.get()
+
+        # Generate puzzle board based on difficulty
+        puzzle = Board(16)
+        puzzle.generate_random()
+        puzzle = get_unique_solution(puzzle, percent_unfill)
+        self.board = puzzle
+        self.fixed = [[self.board.grid[r][c] for c in range(self.board.size)] for r in range(self.board.size)]
+        self.cells = [[None for _ in range(self.board.size)] for _ in range(self.board.size)]
+
         # Hide start frame and show game frame
         self.start_frame.pack_forget()
         self.game_frame.pack(fill='both', expand=True)
@@ -88,6 +114,18 @@ class HexDokuDisplay:
         # Fixed cells are those that are not None in the original puzzle board
         return self.fixed[row][col] is not None
     
+    def _show_puzzle_complete(self): # Highlight all cells to indicate completion
+        for r in range(self.board.size):
+            for c in range(self.board.size):
+                cell = self.cells[r][c]
+                cell.config(state='readonly', readonlybackground='lightgreen', fg='black')
+        mb.showinfo("Congratulations!", "Puzzle Completed Successfully! Click OK to return to start screen.")
+        self._back_to_start()
+
+    def _back_to_start(self):
+        self.game_frame.pack_forget()
+        self.start_frame.pack(fill='both', expand=True)
+
     def _on_cell_change(self, event):
         widget = event.widget
         r, c = widget.row, widget.col
@@ -119,6 +157,10 @@ class HexDokuDisplay:
         if check_num_is_valid(self.board, r, c, num):
             self.board.set_value(r, c, num)
             widget.config(bg="white", fg="black")
+
+            # Check for puzzle completion
+            if self.board.is_solved():
+                self._show_puzzle_complete()
         else:
             # Clear the cell from the board state when validation fails
             self.board.set_value(r, c, None)
