@@ -3,7 +3,8 @@ import tkinter.messagebox as mb
 from board import Board
 from solver import check_num_is_valid, char_to_num, num_to_char, get_unique_solution, best_empty_cell
 from save import save_state, load_state, SAVE_PATH
-from pathlib import Path
+
+MAX_DIFFICULTY, MIN_DIFFICULTY = 60, 1
 
 class HexDokuDisplay:
     board: "Board | None"
@@ -19,6 +20,8 @@ class HexDokuDisplay:
         self.board = None # Board object to be set later after difficulty selection
         self.fixed = None # Track fixed cells after puzzle generation
         self.cells = None # To be initialized after board is set
+
+        self.hardcore_mode = tk.BooleanVar(value=False) # Variable for hardcore mode, which will disable hints, fills, and incorrect input indication
         
         self._build_start_screen()
         self.start_frame.pack(fill='both', expand=True)
@@ -27,18 +30,27 @@ class HexDokuDisplay:
         label = tk.Label(self.start_frame, text="HexDoku", font=("Arial", 24))
         label.pack(pady=20)
 
-        tk.Label(self.start_frame, text="Select Difficulty:", font=("Arial", 14)).pack(pady=10)
+        tk.Label(self.start_frame, text=f"Select Difficulty ({MIN_DIFFICULTY}-{MAX_DIFFICULTY}):", font=("Arial", 14)).pack(pady=10)
 
-        # Difficulty slider, 1-75% unfilled
-        self.difficulty_var = tk.IntVar(value=38)
+        # Difficulty slider, controls percent of cells to unfill
+        self.difficulty_var = tk.IntVar(value=int(MAX_DIFFICULTY - MIN_DIFFICULTY) // 2 + MIN_DIFFICULTY)
         slider = tk.Scale(
             self.start_frame, 
-            from_=1, 
-            to=75, 
+            from_=MIN_DIFFICULTY, 
+            to=MAX_DIFFICULTY, 
             orient="horizontal",
             variable=self.difficulty_var,
-            showvalue=True,)
+            showvalue=True,
+            length=300,)
         slider.pack(pady=10)
+
+        # Hardcore mode checkbox
+        hardcore_check = tk.Checkbutton(
+            self.start_frame,
+            text="Hardcore Mode (No Hints or Fills)",
+            variable=self.hardcore_mode
+        )
+        hardcore_check.pack(pady=10)
 
         start_button = tk.Button(self.start_frame, text="Start Game", command=self._start_game)
         start_button.pack(pady=10)
@@ -57,6 +69,7 @@ class HexDokuDisplay:
 
         # Get the selected difficulty
         percent_unfill = self.difficulty_var.get()
+        hardcore = self.hardcore_mode.get()
 
         # Generate puzzle board based on difficulty
         puzzle = Board(16)
@@ -65,6 +78,7 @@ class HexDokuDisplay:
         self.board = puzzle
         self.fixed = [[self.board.grid[r][c] for c in range(self.board.size)] for r in range(self.board.size)]
         self.cells = [[None for _ in range(self.board.size)] for _ in range(self.board.size)]
+        self.hardcore = hardcore
 
         # Setup game frames
         self._setup_game_frames()
@@ -73,7 +87,7 @@ class HexDokuDisplay:
         # Kill the old frames
         if hasattr(self, 'game_frame'):
             self.game_frame.destroy()
-            
+
         # Hide start frame and show game frame
         self.start_frame.pack_forget()
         self.game_frame = tk.Frame(self.root)
@@ -84,9 +98,10 @@ class HexDokuDisplay:
         self.control_frame.pack(side="top", fill="x")
 
         # Build control buttons
-        hint_btn = tk.Button(self.control_frame, text="Hint", command=self._show_hint, bg="yellow")
+        state = "disabled" if self.hardcore else "normal"
+        hint_btn = tk.Button(self.control_frame, text="Hint", command=self._show_hint, bg="yellow", state=state)
         hint_btn.pack(side="left", padx=10)
-        fill_one_btn = tk.Button(self.control_frame, text="Fill One", command=self._fill_one_space, bg="lightblue")
+        fill_one_btn = tk.Button(self.control_frame, text="Fill One", command=self._fill_one_space, bg="lightblue", state=state)
         fill_one_btn.pack(side="left", padx=10)
         quit_btn = tk.Button(self.control_frame, text="Quit", command=self._on_quit, bg="red", fg="white")
         quit_btn.pack(side="right", padx=10)
@@ -103,7 +118,7 @@ class HexDokuDisplay:
 
     def _on_quit(self):
         if self.board is not None:
-            save_state(self.board, self.fixed, self.difficulty_var.get())
+            save_state(self.board, self.fixed, self.difficulty_var.get(), self.hardcore)
         self.root.quit()
 
     def _build_grid(self):
@@ -179,7 +194,7 @@ class HexDokuDisplay:
 
     def _back_to_start(self):
         if self.board is not None:
-            save_state(self.board, self.fixed, self.difficulty_var.get())
+            save_state(self.board, self.fixed, self.difficulty_var.get(), self.hardcore)
         self.game_frame.pack_forget()
         self.start_frame.pack(fill='both', expand=True)
 
@@ -224,7 +239,8 @@ class HexDokuDisplay:
         else:
             # Clear the cell from the board state when validation fails
             self.board.set_value(r, c, None)
-            widget.config(bg="red", fg="white")
+            if not self.hardcore: # Only indicate incorrect input if not in hardcore mode
+                widget.config(bg="red", fg="white")
 
     def _show_hint(self):
         if self.board is None or self.cells is None:
@@ -283,11 +299,14 @@ class HexDokuDisplay:
         fixed = data["fixed"]
         solution = data["solution"]
         difficulty = data.get("difficulty", 3)
+        hardcore = data.get("hardcore_mode", False)
 
         board = Board(size)
         board.grid = grid
         self.fixed = fixed
         board.solution_grid = solution
+        self.hardcore = hardcore
+
         # Rebuild masks/sets from grid (so check_num_is_valid works)
         board.rebuild_masks_from_grid()
 
