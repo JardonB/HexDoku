@@ -1,5 +1,6 @@
 from board import Board
 from solver import get_unique_solution
+from display import HexDokuDisplay
 
 def main():
     size = 16
@@ -9,8 +10,8 @@ def main():
 
     puzzle = get_unique_solution(solution, percent_unfill=50)
 
-    print("\nGenerated Puzzle:")
-    puzzle.display()
+    gui = HexDokuDisplay(puzzle)
+    gui.run()
 
 if __name__ == "__main__":
     main()
