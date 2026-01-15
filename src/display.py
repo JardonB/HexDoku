@@ -13,6 +13,7 @@ class HexDokuDisplay:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("HexDoku")
+        self.root.protocol("WM_DELETE_WINDOW", self._on_quit) # Handle window close event by calling _on_quit
 
         self.start_frame = tk.Frame(self.root)
         self.game_frame = tk.Frame(self.root)
@@ -57,14 +58,14 @@ class HexDokuDisplay:
         )
         hardcore_check.pack(pady=10)
 
-        start_button = tk.Button(self.start_frame, text="Start Game", command=self._start_game)
+        start_button = tk.Button(self.start_frame, text="Start Game", command=self._start_game, bg="green")
         start_button.pack(pady=10)
 
         if SAVE_PATH.exists():
             continue_button = tk.Button(self.start_frame, text="Continue Saved Game", command=self._continue_game)
             continue_button.pack(pady=5)
 
-        quit_button = tk.Button(self.start_frame, text="Quit", command=self._on_quit)
+        quit_button = tk.Button(self.start_frame, text="Quit", command=self._on_quit, bg="red", fg="white")
         quit_button.pack(pady=5)
 
     def _start_game(self):
