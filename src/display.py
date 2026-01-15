@@ -27,6 +27,11 @@ class HexDokuDisplay:
         self.start_frame.pack(fill='both', expand=True)
 
     def _build_start_screen(self):
+        # Kill the old start frame if it exists
+        if hasattr(self, 'start_frame'):
+            self.start_frame.destroy()
+        
+        self.start_frame = tk.Frame(self.root)
         label = tk.Label(self.start_frame, text="HexDoku", font=("Arial", 24))
         label.pack(pady=20)
 
@@ -196,6 +201,7 @@ class HexDokuDisplay:
         if self.board is not None:
             save_state(self.board, self.fixed, self.difficulty_var.get(), self.hardcore)
         self.game_frame.pack_forget()
+        self._build_start_screen()
         self.start_frame.pack(fill='both', expand=True)
 
     def _on_cell_change(self, event, r: int, c: int):
