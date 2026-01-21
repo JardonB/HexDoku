@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
+from typing import Any
 
 SAVE_PATH = Path("savegame.json")
+SETTINGS_PATH = Path("settings.json")
 
 def save_state(board, fixed, difficulty: int, hardcore: bool):
     state = {
@@ -19,4 +21,14 @@ def load_state():
     if not SAVE_PATH.exists():
         return None
     with SAVE_PATH.open() as f:
+        return json.load(f)
+    
+def save_settings(settings: Any) -> None:
+    with SETTINGS_PATH.open("w") as f:
+        json.dump(settings, f)
+
+def load_settings():
+    if not SETTINGS_PATH.exists():
+        return None
+    with SETTINGS_PATH.open() as f:
         return json.load(f)
