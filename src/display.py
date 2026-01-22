@@ -13,16 +13,15 @@ class HexDokuDisplay:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("HexDoku")
-        self.root.overrideredirect(True)  # Remove OS window decorations
         
         self.settings = get_settings()
+        
+        # Set window close protocol
+        self.root.protocol("WM_DELETE_WINDOW", self._on_quit)
         
         # Create main container with border (entire window with small border)
         self.main_container = tk.Frame(self.root, bg=self.settings["border_color"])
         self.main_container.pack(fill='both', expand=True, padx=1, pady=1)
-        
-        # Create custom title bar
-        self._create_custom_title_bar()
         
         # Create inner frame for content
         self.content_frame = tk.Frame(self.main_container, bg=self.settings["background_color"])
@@ -54,45 +53,6 @@ class HexDokuDisplay:
         y = (screen_height - window_height) // 2
         self.root.geometry(f"+{x}+{y}")
     
-    def _create_custom_title_bar(self):
-        """Create a custom title bar with close button"""
-        title_bar = tk.Frame(self.main_container, bg=self.settings["label_color"], height=30)
-        title_bar.pack(fill='x', side='top')
-        title_bar.pack_propagate(False)
-        
-        # Title text
-        title_label = tk.Label(title_bar, text="HexDoku", bg=self.settings["label_color"], fg=self.settings["text_color_1"], font=("Arial", 12, "bold"))
-        title_label.pack(side='left', padx=10, pady=5)
-        
-        # Close button
-        close_btn = tk.Button(title_bar, text="×", bg=self.settings["quit_button_color"], fg=self.settings["text_color_2"], 
-                             font=("Arial", 16), bd=0, command=self._on_quit, width=3, height=1)
-        close_btn.pack(side='right', padx=5, pady=2)
-        
-        # Make title bar draggable
-        self._setup_window_drag(title_bar)
-    
-    def _setup_window_drag(self, title_bar):
-        """Make the window draggable from the title bar"""
-        self._drag_start_x = 0
-        self._drag_start_y = 0
-        
-        def on_press(event):
-            self._drag_start_x = event.x_root - self.root.winfo_x()
-            self._drag_start_y = event.y_root - self.root.winfo_y()
-        
-        def on_release(event):
-            pass
-        
-        def on_motion(event):
-            x = event.x_root - self._drag_start_x
-            y = event.y_root - self._drag_start_y
-            self.root.geometry(f"+{x}+{y}")
-        
-        title_bar.bind("<Button-1>", on_press)
-        title_bar.bind("<B1-Motion>", on_motion)
-        title_bar.bind("<ButtonRelease-1>", on_release)
-
     def _build_start_screen(self):
         # Kill the old start frame if it exists
         if hasattr(self, 'start_frame'):
@@ -233,17 +193,22 @@ class HexDokuDisplay:
                     pady=(ipady_top, ipady_bot)
                 )
 
-                entry = tk.Entry(inner, width=2, font=(self.settings["font"], self.settings["cell_font_size"]), justify="center")
+                entry = tk.Entry(inner, width=2, font=(self.settings["font"], self.settings["cell_font_size"]), 
+                               justify="center", state='normal')
                 entry.pack()
+                
+                # Store reference before binding
+                self.cells[r][c] = entry
 
                 # Bind events
                 entry.bind("<FocusOut>", lambda e, row=r, col=c: self._on_cell_change(e, row, col))
-                self.cells[r][c] = entry
+                entry.bind("<Return>", lambda e, row=r, col=c: self._on_cell_change(e, row, col))
 
     def _render_board(self):
         if self.board is None or self.cells is None:
             raise ValueError("Board and cells must be initialized before rendering the grid.")
         
+        first_empty = None
         for r in range(self.board.size):
             for c in range(self.board.size):
                 val = self.board.grid[r][c]
@@ -255,9 +220,15 @@ class HexDokuDisplay:
                     widget.insert(0, num_to_char(val))
                 
                 if self._is_fixed_cell(r, c):
-                    widget.config(state='readonly', readonlybackground=self.settings["fixed_cell_color"], fg=self.settings["text_color_1"])
+                    widget.config(state='readonly', readonlybackground=self.settings["fixed_cell_color"], fg=self.settings["text_color_1"], relief='sunken')
                 else:
-                    widget.config(state='normal', bg=self.settings["empty_cell_color"], fg=self.settings["text_color_1"])
+                    widget.config(state='normal', bg=self.settings["empty_cell_color"], fg=self.settings["text_color_1"], relief='sunken')
+                    if first_empty is None:
+                        first_empty = widget
+        
+        # Give focus to the first empty cell if one exists
+        if first_empty:
+            first_empty.focus_set()
 
     def _is_fixed_cell(self, row, col):
         # Fixed cells are those that are not None in the original puzzle board
@@ -273,7 +244,7 @@ class HexDokuDisplay:
                 if cell is None:
                     continue
                 cell.config(state='readonly', readonlybackground='lightgreen', fg='black')
-        mb.showinfo("Congratulations!", "Puzzle Completed Successfully! Click OK to return to start screen.")
+        mb.showinfo("Congratulations!", "Puzzle Completed Successfully!")
         self._back_to_start()
 
     def _back_to_start(self):
@@ -305,13 +276,13 @@ class HexDokuDisplay:
         # If cell is not fixed and text is empty, clear the cell
         if text == "":
             self.board.set_value(r, c, None)
-            widget.config(bg=self.settings["empty_cell_color"], fg=self.settings["text_color_1"])
+            widget.config(state='normal', bg=self.settings["empty_cell_color"], fg=self.settings["text_color_1"])
             return
         
         # Validate that input is a single allowed character
         allowed = set(self.board.valid_chars)
         if len(text) != 1 or text not in allowed:
-            widget.config(bg=self.settings["error_color"], fg=self.settings["text_color_2"])
+            widget.config(state='normal', bg=self.settings["error_color"], fg=self.settings["text_color_2"])
             return
         
         # Convert char to number
@@ -319,7 +290,7 @@ class HexDokuDisplay:
         
         if check_num_is_valid(self.board, r, c, num):
             self.board.set_value(r, c, num)
-            widget.config(bg=self.settings["empty_cell_color"], fg=self.settings["text_color_1"])
+            widget.config(state='normal', bg=self.settings["empty_cell_color"], fg=self.settings["text_color_1"])
 
             # Check for puzzle completion
             if self.board.is_solved():
@@ -328,7 +299,7 @@ class HexDokuDisplay:
             # Clear the cell from the board state when validation fails
             self.board.set_value(r, c, None)
             if not self.hardcore: # Only indicate incorrect input if not in hardcore mode
-                widget.config(bg=self.settings["error_color"], fg=self.settings["text_color_2"])
+                widget.config(state='normal', bg=self.settings["error_color"], fg=self.settings["text_color_2"])
 
     def _show_hint(self):
         if self.board is None or self.cells is None:
@@ -403,9 +374,8 @@ class HexDokuDisplay:
         self.cells = [[None for _ in range(size)] for _ in range(size)]
 
         self.start_frame.pack_forget()
-        self.game_frame.pack(fill="both", expand=True)
-
-        # Set up game frames
+        
+        # Set up game frames (this will create and pack the game_frame)
         self._setup_game_frames()
 
     def _settings_menu(self):
@@ -668,9 +638,9 @@ class HexDokuDisplay:
         save_settings(self.settings)
         
         # Rebuild visible screens
-        if self.start_frame.winfo_viewable():
+        if self.start_frame.winfo_exists() and self.start_frame.winfo_viewable():
             self._build_start_screen()
-        elif self.game_frame.winfo_viewable():
+        elif self.game_frame.winfo_exists() and self.game_frame.winfo_viewable():
             self._refresh_ui_for_setting("background_color")
         
         # Refresh the entire settings menu
@@ -681,7 +651,8 @@ class HexDokuDisplay:
         from save import save_settings
         
         # Confirm action
-        if not mb.askyesno("Confirm", "Restore all settings to defaults?"):
+        result = mb.askyesno("Confirm", "Restore all settings to defaults?")
+        if not result:
             return
         
         # Get default settings
@@ -695,9 +666,9 @@ class HexDokuDisplay:
         save_settings(self.settings)
         
         # Rebuild visible screens
-        if self.start_frame.winfo_viewable():
+        if self.start_frame.winfo_exists() and self.start_frame.winfo_viewable():
             self._build_start_screen()
-        elif self.game_frame.winfo_viewable():
+        elif self.game_frame.winfo_exists() and self.game_frame.winfo_viewable():
             self._refresh_ui_for_setting("background_color")
         
         # Refresh the entire settings menu
